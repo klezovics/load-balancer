@@ -1,0 +1,99 @@
+Time spent: 3 hours and 13 minutes.
+
+==================== Solution architecture ========================
+
+The "backbone" of the solution consists of adding code to the LoadHandler class.
+Therefore, I will focus on it first and then changes made to other classes will be discussed. 
+
+Here is how the solution works. 
+
+The LoadBalancer class splits up time in one second intervals. 
+During each second it first collects the PriceUpdates it receives from the Producer 
+in a Map. Then, when enough time has passed - it send the update to the Consumer.
+
+If an update is received for a particular stock during this one iteration more than once - 
+only the most recent price is stored. This solves the problem of repeatedly receiving 
+an update for the same stock during the one second interval. Therefore, if information 
+is sent about less than MAX_PRICE_UPDATES number of companies - everything will work fine.
+
+Now, what do we do if we receive information about more than MAX_PRICE_UPDATES during a single 
+iteration ? 
+
+This issue is addressed in the following way. 
+
+For each company, which has ever "passed through" the LoadHandler - it will record the time of 
+the update when it sends this update to the consumer. We can do this, since even the biggest 
+stock exchanges have no more than about 3000 companies. 
+
+All price updates are stored in a HashMap - mostRecentPrices. This map 
+stores the most recent price for each comapany. Now if we have more companies 
+than MAX_PRICE_UPDATES then we calculate the number to be removed.
+
+int numToRemove = mostRecentPrices.size() - MAX_PRICE_UPDATES;
+
+And then we remove companies for which the customer has the most recent updates.
+
+For example: 
+1) Let's say that MAX_PRICE_UPDATE is 2. 
+2) During the 1 second iteration the following has happened:
+  2.1) Received price update for stock A ( last update about A price sent to consumer 2 hours ago)
+  2.2) Received price update for stock B ( last update about B price sent to consumer 3  seconds ago )
+  2.3) Receive price update for stock C ( last update about C price sent to consumer 5 minutes ago ) 
+  2.3) Receive price update for stock D ( last update about D price sent to consumer 20 minutes ago ) 
+
+Firstly company B will be removed, and then company C will be removed. 
+After this data about A and D is sent.
+
+
+We can't send all the three updates to the consumer within this iteration.
+Therefore, one of the updates will need to be dropped. And the update which will be dropped 
+will be the one about the company for which the consumer has the most recent info, which is B in this case.
+
+Therefore PriceUpdates for A and C will be sent.
+
+Additional details are provided in the LoadHandler method comments.
+Please see the receive() method and LoadHandler class members.
+
+
+== Changes in Consumer class == 
+
+I'v changed the output format to explicitly show each update receive from the LoadBalancer.
+Also a timestamp is added for each update.
+
+
+
+
+
+== Changes to Exercise class == 
+
+The exercise class is unchanged
+
+
+
+
+
+== Changes to PriceUpdate class ==
+
+It is also important to note that the PriceUpdate class hashCode() and equals() methods 
+were override together.
+
+The equals() method was overriden in a way that satisfies the JavaSE assumed contract for the 
+equals() method and that two PriceUpdate objects are equal if company names and prices match. 
+
+The hashCode() was then overriden in a way that ensures that two equals objects produce the 
+same hashCode() result. 
+
+It is necessary to do so to ensure that PriceUpdate objects are correctly stored in some of 
+the JavaSE collection classes. 
+
+
+
+
+== Changes to Producer class == 
+
+The producer class now "spins" in an endless loop and is constantly sending updates to the load 
+balancer. This change is done in the generateUpdates() method. Also,renamed stocks in 
+the format of "STOCKX", where X is an integer. Simplifies testing.
+
+
+==================== Testing ========================
